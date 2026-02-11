@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>祝马金成生日快乐！</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: #0d0d0e;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        /* 开场视频全屏适配 */
+        #intro-video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #050505;
+            z-index: 999;
+            transition: opacity 1s ease;
+        }
+        #intro-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 标题样式 */
+        h1, h2, h3 {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            left: 0;
+            right: 0;
+            z-index: 99;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            padding: 8px 15px;
+            border-radius: 8px;
+            line-height: 1.6;
+            max-width: 90%;
+            margin: 0 auto;
+            text-shadow: none !important;
+        }
+        h1 {
+            top: 12%;
+            font-size: 6vmin;
+            color: #00bfff;
+            animation: slideUp 1s ease-out 0.5s both;
+        }
+        h3 {
+            top: 50%;
+            transform: translateY(-50%) !important;
+            font-size: 2.8vmin;
+            color: #b58decd2;
+            animation: fadeIn 1s ease-out 1.5s both;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+        h2 {
+            bottom: 15%;
+            font-size: 3.2vmin;
+            color: #32cd32;
+            animation: slideUp 1s ease-out 1s both;
+        }
+
+        /* 烟花画布 */
+        #fireworks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 5;
+        }
+
+        /* 播放按钮（仅在自动播放失败时显示） */
+        #play-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 30px;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes floatUp {
+            to { transform: translateY(-100px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 开场视频 -->
+    <div id="intro-video-container">
+        <video id="intro-video" muted playsinline>
+            <!-- 替换为你的视频文件路径 -->
+            <source src="视频l.mp4" type="video/mp4">
+            你的浏览器不支持视频播放。
+        </video>
+    </div>
+
+    <!-- 视频专属音频（与视频同步播放） -->
+    <audio id="video-audio" preload="auto">
+        <!-- 替换为你的视频音频文件路径 -->
+        <source src="yin.mp3" type="audio/mpeg">
+        你的浏览器不支持音频播放。
+    </audio>
+    <!-- 背景音乐（视频结束后播放） -->
+    <audio id="bg-music" loop preload="auto">
+        <!-- 替换为你的背景音乐文件路径 -->
+        <source src="音乐.mp3" type="audio/mpeg">
+        你的浏览器不支持音频播放。
+    </audio>
+
+    <!-- 手动播放按钮（仅在浏览器阻止自动播放时显示） -->
+    <button id="play-button">🔊 点击播放音乐</button>
+
+    <!-- 页面文字 -->
+    <h1>祝马金成生日快乐！</h1>
+    <h3>“此马若遂千里志，追风犹可到天涯。”<br>
+        在马年祝你生日快乐，烦恼马上消！<br>
+        money 马上有，福气马上到！</h3>
+    <h2>合作者：张，夏，甘，枫，京</h2>
+
+    <canvas id="fireworks"></canvas>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ========== 获取DOM元素 ==========
+            const videoContainer = document.getElementById('intro-video-container');
+            const introVideo = document.getElementById('intro-video');
+            const videoAudio = document.getElementById('video-audio');
+            const bgMusic = document.getElementById('bg-music');
+            const playButton = document.getElementById('play-button');
+            const h1 = document.querySelector('h1');
+            const h2 = document.querySelector('h2');
+            const h3 = document.querySelector('h3');
+
+            // 初始隐藏文字
+            h1.style.display = 'none';
+            h2.style.display = 'none';
+            h3.style.display = 'none';
+
+            // ========== 状态标记 ==========
+            let isVideoEnded = false;        // 视频是否已结束
+            let isVideoAudioPlaying = false; // 视频音频是否正在播放
+            let userInteracted = false;      // 用户是否已交互
+
+            // ========== 核心音频控制 ==========
+            
+            // 1. 视频开始播放时，尝试播放视频音频
+            introVideo.addEventListener('play', function() {
+                if (isVideoEnded) return; // 视频已结束，不播放
+                
+                // 尝试播放视频音频
+                videoAudio.play()
+                    .then(() => {
+                        isVideoAudioPlaying = true;
+                        console.log('✅ 视频音频播放中');
+                    })
+                    .catch(error => {
+                        console.log('⏸️ 视频音频被阻止，等待用户交互:', error);
+                        // 显示播放按钮
+                        playButton.style.display = 'block';
+                        playButton.textContent = '🔊 点击播放视频声音';
+                    });
+            });
+
+            // 2. 视频暂停时（包括结束），暂停视频音频
+            introVideo.addEventListener('pause', function() {
+                if (isVideoAudioPlaying) {
+                    videoAudio.pause();
+                    isVideoAudioPlaying = false;
+                }
+            });
+
+            // 3. 视频结束处理
+            function handleVideoEnd() {
+                if (isVideoEnded) return;
+                isVideoEnded = true;
+                
+                console.log('🎬 视频结束');
+                
+                // 停止并重置视频音频
+                videoAudio.pause();
+                videoAudio.currentTime = 0;
+                isVideoAudioPlaying = false;
+                
+                // 隐藏视频容器
+                videoContainer.style.opacity = '0';
+                
+                setTimeout(() => {
+                    videoContainer.style.display = 'none';
+                    
+                    // 显示文字
+                    h1.style.display = 'block';
+                    h2.style.display = 'block';
+                    h3.style.display = 'block';
+                    
+                    // 启动烟花
+                    startFireworks();
+                    
+                    // 延迟启动背景音乐（确保完全错开）
+                    setTimeout(() => {
+                        // 如果用户已经交互过，直接播放
+                        if (userInteracted) {
+                            bgMusic.play()
+                                .then(() => console.log('🎵 背景音乐播放中'))
+                                .catch(err => console.log('背景音乐播放失败:', err));
+                        } else {
+                            // 未交互，显示播放按钮
+                            playButton.style.display = 'block';
+                            playButton.textContent = '🔊 点击播放背景音乐';
+                            
+                            // 移除旧的监听器，添加新的一次性监听
+                            const playHandler = function() {
+                                userInteracted = true;
+                                bgMusic.play()
+                                    .then(() => {
+                                        console.log('🎵 背景音乐播放中');
+                                        playButton.style.display = 'none';
+                                    })
+                                    .catch(err => console.log('背景音乐播放失败:', err));
+                                document.removeEventListener('click', playHandler);
+                                document.removeEventListener('touchstart', playHandler);
+                            };
+                            
+                            document.addEventListener('click', playHandler, { once: true });
+                            document.addEventListener('touchstart', playHandler, { once: true });
+                        }
+                    }, 300); // 300ms延迟确保音频切换干净
+                    
+                }, 1000);
+            }
+
+            // 监听视频结束
+            introVideo.addEventListener('ended', handleVideoEnd);
+            introVideo.addEventListener('error', handleVideoEnd);
+            
+            // 15秒超时强制结束
+            setTimeout(() => {
+                if (!isVideoEnded) {
+                    handleVideoEnd();
+                }
+            }, 15000);
+
+            // ========== 用户交互处理 ==========
+            function handleUserInteraction() {
+                if (userInteracted) return;
+                userInteracted = true;
+                
+                console.log('👆 用户已交互');
+                
+                // 隐藏播放按钮
+                playButton.style.display = 'none';
+                
+                // 如果视频还在播放且视频音频未播放，尝试播放
+                if (!isVideoEnded && !isVideoAudioPlaying && !introVideo.paused) {
+                    videoAudio.play()
+                        .then(() => {
+                            isVideoAudioPlaying = true;
+                            console.log('✅ 用户交互后视频音频播放');
+                        })
+                        .catch(err => console.log('视频音频播放失败:', err));
+                }
+                
+                // 如果视频已结束，尝试播放背景音乐
+                if (isVideoEnded) {
+                    bgMusic.play()
+                        .then(() => console.log('✅ 用户交互后背景音乐播放'))
+                        .catch(err => console.log('背景音乐播放失败:', err));
+                }
+            }
+
+            // 监听用户交互事件
+            document.addEventListener('click', handleUserInteraction);
+            document.addEventListener('touchstart', handleUserInteraction);
+            
+            // 播放按钮点击处理
+            playButton.addEventListener('click', function(e) {
+                e.stopPropagation(); // 阻止冒泡，避免重复触发
+                handleUserInteraction();
+            });
+
+            // ========== 确保视频自动播放 ==========
+            // 尝试自动播放视频（静音状态，浏览器通常允许）
+            introVideo.play().catch(error => {
+                console.log('视频自动播放被阻止，等待用户交互:', error);
+                
+                // 显示提示按钮
+                playButton.style.display = 'block';
+                playButton.textContent = '▶️ 点击播放视频';
+                
+                // 用户交互时播放视频
+                const playVideoHandler = function() {
+                    introVideo.play()
+                        .then(() => console.log('✅ 用户交互后视频播放'))
+                        .catch(err => console.log('视频播放失败:', err));
+                    document.removeEventListener('click', playVideoHandler);
+                    document.removeEventListener('touchstart', playVideoHandler);
+                };
+                
+                document.addEventListener('click', playVideoHandler, { once: true });
+                document.addEventListener('touchstart', playVideoHandler, { once: true });
+            });
+
+            // ========== 烟花动画 ==========
+            function startFireworks() {
+                const canvas = document.getElementById('fireworks');
+                const ctx = canvas.getContext('2d');
+                
+                function resizeCanvas() {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                }
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+
+                class Firework {
+                    constructor(x, y) {
+                        this.x = Math.random() * canvas.width;
+                        this.y = canvas.height;
+                        this.targetX = x || Math.random() * canvas.width;
+                        this.targetY = y || Math.random() * canvas.height * 0.6;
+                        this.speed = Math.random() * 3 + 3;
+                        this.dx = (this.targetX - this.x) / (canvas.height / this.speed);
+                        this.dy = (this.targetY - this.y) / (canvas.height / this.speed);
+                        this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                        this.particles = [];
+                        this.exploded = false;
+                    }
+                    update() {
+                        if (!this.exploded) {
+                            this.x += this.dx;
+                            this.y += this.dy;
+                            if (Math.abs(this.y - this.targetY) < 5) {
+                                this.explode();
+                            }
+                        } else {
+                            this.particles.forEach(p => p.update());
+                            this.particles = this.particles.filter(p => p.opacity > 0);
+                        }
+                    }
+                    draw() {
+                        if (!this.exploded) {
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                            ctx.fillStyle = this.color;
+                            ctx.fill();
+                        } else {
+                            this.particles.forEach(p => p.draw());
+                        }
+                    }
+                    explode() {
+                        this.exploded = true;
+                        for (let i = 0; i < 100; i++) {
+                            this.particles.push(new Particle(this.x, this.y, this.color));
+                        }
+                    }
+                }
+                
+                class Particle {
+                    constructor(x, y, color) {
+                        this.x = x;
+                        this.y = y;
+                        this.vx = (Math.random() - 0.5) * 10;
+                        this.vy = (Math.random() - 0.5) * 10;
+                        this.opacity = 1;
+                        this.color = color;
+                        this.decay = Math.random() * 0.02 + 0.01;
+                    }
+                    update() {
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        this.vy += 0.1;
+                        this.opacity -= this.decay;
+                    }
+                    draw() {
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
+                        ctx.fillStyle = `hsla(${this.color.match(/\d+/)[0]}, 100%, 50%, ${this.opacity})`;
+                        ctx.fill();
+                    }
+                }
+                
+                let fireworks = [];
+                const messages = [
+                    '生日快乐！', '天天开心！', '是谁又老一岁啊~', 
+                    '还活着，挺不错', '🎂🎂🎂🎂🎂', '多喝热水，吃饱穿暖',
+                    '暴富💰这之后养我们：）', '马马马马', 'der嗒der哒', '马蹄哒哒哒'
+                ];
+                
+                function loop() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    if (Math.random() < 0.05) {
+                        fireworks.push(new Firework());
+                    }
+                    fireworks.forEach(fw => {
+                        fw.update();
+                        fw.draw();
+                    });
+                    fireworks = fireworks.filter(fw => fw.particles.length > 0 || !fw.exploded);
+                    requestAnimationFrame(loop);
+                }
+                loop();
+                
+                // 点击触发烟花和祝福语
+                canvas.addEventListener('click', (e) => {
+                    fireworks.push(new Firework(e.clientX, e.clientY));
+                    const bubble = document.createElement('div');
+                    bubble.textContent = messages[Math.floor(Math.random() * messages.length)];
+                    bubble.style.position = 'absolute';
+                    bubble.style.left = (e.clientX - 50) + 'px';
+                    bubble.style.top = (e.clientY - 20) + 'px';
+                    bubble.style.color = '#fff';
+                    bubble.style.fontSize = '4vmin';
+                    bubble.style.fontWeight = 'bold';
+                    bubble.style.pointerEvents = 'none';
+                    bubble.style.animation = 'floatUp 2s forwards';
+                    bubble.style.zIndex = 15;
+                    bubble.style.textShadow = '0 0 10px rgba(0,0,0,0.5)';
+                    document.body.appendChild(bubble);
+                    setTimeout(() => bubble.remove(), 2000);
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
